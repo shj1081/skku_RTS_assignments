@@ -16,7 +16,7 @@ class TasksetAnalyzer:
     Initialize the taskset analyzer
     """
 
-    def __init__(self, task_set, scheduling_algorithm, is_constrained_deadline):
+    def __init__(self, task_set, scheduling_algorithm, analysis):
 
         # sort the task based on the scheduling algorithm (no need to sort for EDF)
         if scheduling_algorithm == "RM":
@@ -28,8 +28,9 @@ class TasksetAnalyzer:
         else:
             self.task_set = task_set
 
+        # other attributes
         self.scheduling_algorithm = scheduling_algorithm
-        self.is_constrained_deadline = is_constrained_deadline
+        self.analysis = analysis
 
     """
     Utilization bound analysis (only for EDF scheduling algorithm)
@@ -112,6 +113,19 @@ class TasksetAnalyzer:
 
         return "P"
 
+    """
+    Analyze the task set and return the result
+    """
+
+    def analyze(self):
+        if self.scheduling_algorithm == "EDF":
+            if self.analysis == "U":
+                return self.utilization_bound_analysis()
+            else:  # D
+                return self.processor_demand_criterion()
+        else:  # RM or DM --> R
+            return self.response_time_analysis()
+
 
 """
 Get user input and validate the input arguments
@@ -162,7 +176,7 @@ Load the task sets from the input file
 
 def load_tasks(input_file):
 
-    tasks = []
+    task_sets = []
     with open(input_file, "r") as file:
 
         for i, line in enumerate(file):
@@ -187,6 +201,42 @@ def load_tasks(input_file):
             ]
 
             # append the task set to the tasks list
-            tasks.append(task_set)
+            task_sets.append(task_set)
 
-    return tasks, is_constrained_deadline
+    return task_sets, is_constrained_deadline
+
+
+def main():
+
+    # validate the user input
+    input_file, scheduling_algorithm, analysis = get_user_input()
+
+    # load the task sets from the input file
+    task_sets, is_constrained_deadline = load_tasks(input_file)
+
+    # check if the deadline type is matched with scheduling algorithm, analysis pair
+    deadline_type_mapping = {
+        "EDF U": 1,
+        "EDF D": 0,
+        "RM R": 0,
+        "DM R": 1,
+    }
+
+    if (
+        deadline_type_mapping[scheduling_algorithm + " " + analysis]
+        == is_constrained_deadline
+    ):
+        for task_set in task_sets:
+            analyzer = TasksetAnalyzer(task_set, scheduling_algorithm, analysis)
+            result = analyzer.analyze()
+            print(result)
+
+    else:
+        print(
+            f"Error: [scheduling_algorithm analysis] pair does not match with the deadline type."
+        )
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()
