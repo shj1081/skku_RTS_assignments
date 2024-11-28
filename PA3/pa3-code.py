@@ -1,6 +1,8 @@
 import os
 import sys
 import math
+from multiprocessing import Pool  # Import Pool for multiprocessing
+from functools import partial  # Import partial for fixing arguments
 
 
 class Task:
@@ -220,8 +222,23 @@ def generate_output_file(result):
             file.write(line + "\n")
 
 
-def main():
+"""
+Analyze a single task set (used for multiprocessing)
+"""
 
+
+def analyze_task_set(task_set, scheduling_algorithm, analysis):
+    """Analyze a single task set."""
+    analyzer = TasksetAnalyzer(task_set, scheduling_algorithm, analysis)
+    return analyzer.analyze()
+
+
+"""
+Main function
+"""
+
+
+def main():
     # validate the user input
     input_file, scheduling_algorithm, analysis = get_user_input()
 
@@ -240,11 +257,18 @@ def main():
         deadline_type_mapping[scheduling_algorithm + " " + analysis]
         == is_constrained_deadline
     ):
-
         result = []
-        for task_set in task_sets:
-            taskset_analyzer = TasksetAnalyzer(task_set, scheduling_algorithm, analysis)
-            result.append(taskset_analyzer.analyze())
+        with Pool() as pool:  # Create a pool of worker processes
+
+            # use partial to fix the unchanged arguments
+            analyze_with_args = partial(
+                analyze_task_set,
+                scheduling_algorithm=scheduling_algorithm,
+                analysis=analysis,
+            )
+
+            # Use pool.imap to analyze task sets with multiprocessing
+            result = list(pool.imap(analyze_with_args, task_sets))
 
         generate_output_file(result)
 
