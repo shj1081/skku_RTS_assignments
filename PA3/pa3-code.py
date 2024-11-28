@@ -42,3 +42,38 @@ def get_user_input():
         sys.exit(1)
 
     return input_file, scheduling_algorithm, analysis
+
+
+"""
+function to load the task sets from the input file
+"""
+
+
+def load_tasks(input_file):
+
+    tasks = []
+    with open(input_file, "r") as file:
+
+        for i, line in enumerate(file):
+            # skip empty lines
+            line = line.strip()
+            if not line:
+                continue
+
+            # read metadata from the first line
+            if i == 0:
+                metadata = line.split()[:3]
+                num_tasks = int(metadata[0])
+                is_constrained_deadline = int(metadata[2])
+
+            # read task set from the subsequent lines
+            data = list(map(int, line.split()[3:]))
+            task_set = [
+                (data[j * 3], data[j * 3 + 1], data[j * 3 + 2])
+                for j in range(num_tasks)
+            ]
+
+            # append the task set to the tasks list
+            tasks.append(task_set)
+
+    return tasks, is_constrained_deadline
