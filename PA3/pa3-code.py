@@ -61,7 +61,7 @@ class TasksetAnalyzer:
                     for HP_task in self.task_set[:i]
                 )
 
-                # calculate the current response time
+                # calculate the current step of response time
                 R_current = task.wcet + interference
 
                 # check the convergence and condition that R <= D (can be early stopped before converge)
@@ -94,9 +94,10 @@ class TasksetAnalyzer:
             }
         )
 
-        # Iterate over the pre-calculated interval candidates
+        # Iterate over all possible interval candidates and check if g(0, interval) <= interval
         for interval in interval_candidates:
-            # Calculate the total demand g(0, interval) for this interval
+
+            # Calculate the total demand g(0, interval)
             total_demand = sum(
                 math.floor(
                     (interval - task.relative_deadline + task.period) / task.period
@@ -105,11 +106,11 @@ class TasksetAnalyzer:
                 for task in self.task_set
             )
 
-            # Check if the demand exceeds the available processing time
+            # check if g(0, interval) <= interval, if not, the task set is not schedulable
             if total_demand > interval:
-                return "F"  # Task set is not schedulable
+                return "F"
 
-        return "P"  # Task set is schedulable
+        return "P"
 
 
 """
