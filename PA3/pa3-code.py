@@ -1,21 +1,44 @@
 import os
 import sys
 import math
-from multiprocessing import Pool  # Import Pool for multiprocessing
-from functools import partial  # Import partial for fixing arguments
+from multiprocessing import Pool
+from functools import partial
+from dataclasses import dataclass
 
 
+@dataclass
 class Task:
-    def __init__(self, index, period, wcet, deadline):
-        self.index = index
-        self.period = period
-        self.wcet = wcet
-        self.relative_deadline = deadline
+    """
+    Represents a real-time task with timing constraints.
+
+    Attributes:
+        index (int): Unique identifier for the task
+        period (int): Task's Period
+        wcet (int): Task's Worst-Case Execution Time
+        relative_deadline (int): Task's Relative Deadline
+    """
+
+    index: int
+    period: int
+    wcet: int
+    relative_deadline: int
+
+    @property
+    def utilization(self):
+        """Calculate task utilization (WCET/Period)."""
+        return self.wcet / self.period
 
 
 class TasksetAnalyzer:
     """
-    Initialize the taskset analyzer
+    Analyzes real-time task sets schedulability using different tests
+    based on the scheduling algorithm and analysis method.
+
+    Supports:
+    - Implicit RM Response Time Analysis
+    - Constrained DM Response Time Analysis
+    - Implicit EDF Utilization Bound Analysis
+    - Constrained EDF Processor Demand Criterion
     """
 
     def __init__(self, task_set, scheduling_algorithm, analysis):
@@ -34,22 +57,29 @@ class TasksetAnalyzer:
         self.scheduling_algorithm = scheduling_algorithm
         self.analysis = analysis
 
-    """
-    Utilization bound analysis (only for EDF scheduling algorithm)
-    """
-
     def utilization_bound_analysis(self):
+        """
+        Performs Implicit EDF utilization bound analysis.
 
-        # calculate the sum of the utilization of all tasks
-        sum_of_utilizations = sum(task.wcet / task.period for task in self.task_set)
+        Returns:
+            str: 'P' if schedulable (utilization ≤ 1), 'F' otherwise
+        """
 
-        return "P" if sum_of_utilizations <= 1 else "F"
-
-    """
-    Response time analysis (for RM or DM scheduling algorithms)
-    """
+        return "P" if sum(task.utilization for task in self.task_set) <= 1 else "F"
 
     def response_time_analysis(self):
+        """
+        Performs Implicit RM or Constrained DM response time analysis.
+
+        Iteratively calculates the worst-case response time for each task,
+        considering interference from higher priority tasks.
+
+        If task's converged response time is greater than its relative deadline,
+        the task set is not schedulable.
+
+        Returns:
+            str: 'P' if schedulable, 'F' otherwise
+        """
 
         for i, task in enumerate(self.task_set):
 
@@ -78,11 +108,15 @@ class TasksetAnalyzer:
 
         return "P"
 
-    """
-    Processor Demand Criterion (only for EDF scheduling algorithm)
-    """
-
     def processor_demand_criterion(self):
+        """
+        Performs Explicit EDF processor demand criterion analysis.
+
+        Checks if total demand function g(0,L) ≤ L for all relevant intervals L > 0.
+
+        Returns:
+            str: 'P' if schedulable, 'F' otherwise
+        """
 
         # Find the hyperperiod of the task set (upperbound of the interval L)
         # TODO: What if the hyperperiod is too large? (> 100000)
@@ -116,11 +150,11 @@ class TasksetAnalyzer:
 
         return "P"
 
-    """
-    Analyze the task set and return the result
-    """
-
     def analyze(self):
+        """
+        Analyzes the task set and returns the schedulability result.
+        """
+
         if self.scheduling_algorithm == "EDF":
             if self.analysis == "U":
                 return self.utilization_bound_analysis()
@@ -130,12 +164,19 @@ class TasksetAnalyzer:
             return self.response_time_analysis()
 
 
-"""
-Get user input and validate the input arguments
-"""
-
-
 def get_user_input():
+    """
+    Validates and processes command line arguments.
+
+    Expected format:
+    python3 script.py input_file.txt [RM R | DM R | EDF U | EDF D]
+
+    Returns:
+        tuple: (input_file, scheduling_algorithm, analysis)
+
+    Raises:
+        SystemExit: If validation fails
+    """
 
     # initialize error messages list to store any validation errors
     error_msgs = []
@@ -172,12 +213,17 @@ def get_user_input():
     return input_file, scheduling_algorithm, analysis
 
 
-"""
-Load the task sets from the input file
-"""
-
-
 def load_tasks(input_file):
+    """
+    Load task sets from the input file.
+
+    File format:
+        First 3 elements each line: <num_of_tasks> <sum_of_utilization> <is_constrained_deadline>
+        following elements each line: <period> <WCET> <relative_deadline>
+
+    Returns:
+        tuple: (list of task sets, is_constrained_deadline flag)
+    """
 
     task_sets = []
     with open(input_file, "r") as file:
@@ -199,7 +245,12 @@ def load_tasks(input_file):
 
             # create a task set from the data
             task_set = [
-                Task(index, data[index * 3], data[index * 3 + 1], data[index * 3 + 2])
+                Task(
+                    index,  # index
+                    data[index * 3],  # period
+                    data[index * 3 + 1],  # WCET
+                    data[index * 3 + 2],  # relative deadline
+                )
                 for index in range(num_tasks)
             ]
 
@@ -209,12 +260,17 @@ def load_tasks(input_file):
     return task_sets, is_constrained_deadline
 
 
-"""
-Generate the output file
-"""
-
-
 def generate_output_file(result):
+    """
+    Writes analysis results to output file.
+
+    Args:
+        result (list): List of schedulability results ('P' or 'F')
+
+    Creates:
+        ./output/2020310083_HW3.txt
+    """
+
     os.makedirs("./output", exist_ok=True)
     output_file = os.path.join("./output", "2020310083_HW3.txt")
     with open(output_file, "w") as file:
@@ -222,23 +278,37 @@ def generate_output_file(result):
             file.write(line + "\n")
 
 
-"""
-Analyze a single task set (used for multiprocessing)
-"""
-
-
 def analyze_task_set(task_set, scheduling_algorithm, analysis):
-    """Analyze a single task set."""
+    """
+    Analyzes a single task set using specified algorithm and method.
+
+    Helper function for parallel processing.
+
+    Args:
+        task_set (list): List of Task objects
+        scheduling_algorithm (str): 'RM', 'DM', or 'EDF'
+        analysis (str): 'U', 'R', or 'D'
+
+    Returns:
+        str: Schedulability result ('P' or 'F')
+    """
+
     analyzer = TasksetAnalyzer(task_set, scheduling_algorithm, analysis)
     return analyzer.analyze()
 
 
-"""
-Main function
-"""
-
-
 def main():
+    """
+    Main program entry point.
+
+    Workflow:
+    1. Validate input arguments
+    2. Load task sets from input file
+    3. Verify deadline type compatibility
+    4. Analyze task sets in parallel
+    5. Generate output file
+    """
+
     # validate the user input
     input_file, scheduling_algorithm, analysis = get_user_input()
 
@@ -257,8 +327,11 @@ def main():
         deadline_type_mapping[scheduling_algorithm + " " + analysis]
         == is_constrained_deadline
     ):
+
         result = []
-        with Pool() as pool:  # Create a pool of worker processes
+
+        # Create a pool of worker processes
+        with Pool() as pool:
 
             # use partial to fix the unchanged arguments
             analyze_with_args = partial(
@@ -270,6 +343,7 @@ def main():
             # Use pool.imap to analyze task sets with multiprocessing
             result = list(pool.imap(analyze_with_args, task_sets))
 
+        # generate the output file with the schedulability analysis results
         generate_output_file(result)
 
     else:
