@@ -83,6 +83,7 @@ class TasksetAnalyzer:
     def processor_demand_criterion(self):
 
         # Find the hyperperiod of the task set (upperbound of the interval L)
+        # TODO: What if the hyperperiod is too large? (> 100000)
         hyperperiod = math.lcm(*[task.period for task in self.task_set])
 
         # All possible interval candidates for interval L for efficiency
@@ -206,6 +207,19 @@ def load_tasks(input_file):
     return task_sets, is_constrained_deadline
 
 
+"""
+Generate the output file
+"""
+
+
+def generate_output_file(result):
+    os.makedirs("./output", exist_ok=True)
+    output_file = os.path.join("./output", "2020310083_HW3.txt")
+    with open(output_file, "w") as file:
+        for line in result:
+            file.write(line + "\n")
+
+
 def main():
 
     # validate the user input
@@ -226,10 +240,13 @@ def main():
         deadline_type_mapping[scheduling_algorithm + " " + analysis]
         == is_constrained_deadline
     ):
+
+        result = []
         for task_set in task_sets:
-            analyzer = TasksetAnalyzer(task_set, scheduling_algorithm, analysis)
-            result = analyzer.analyze()
-            print(result)
+            taskset_analyzer = TasksetAnalyzer(task_set, scheduling_algorithm, analysis)
+            result.append(taskset_analyzer.analyze())
+
+        generate_output_file(result)
 
     else:
         print(
