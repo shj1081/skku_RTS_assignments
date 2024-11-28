@@ -2,8 +2,16 @@ import os
 import sys
 
 
+class Task:
+    def __init__(self, period, wcet, deadline):
+        self.period = period
+        self.wcet = wcet
+        self.relative_deadline = deadline
+        self.absolute_deadline = deadline  # 1st absolute deadline
+
+
 """
-function to get user input and validate the input arguments
+Get user input and validate the input arguments
 """
 
 
@@ -45,7 +53,7 @@ def get_user_input():
 
 
 """
-function to load the task sets from the input file
+Load the task sets from the input file
 """
 
 
@@ -68,8 +76,10 @@ def load_tasks(input_file):
 
             # read task set from the subsequent lines
             data = list(map(int, line.split()[3:]))
+
+            # create a task set from the data
             task_set = [
-                (data[j * 3], data[j * 3 + 1], data[j * 3 + 2])
+                Task(data[j * 3], data[j * 3 + 1], data[j * 3 + 2])
                 for j in range(num_tasks)
             ]
 
