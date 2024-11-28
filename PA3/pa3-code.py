@@ -1,13 +1,115 @@
 import os
 import sys
+import math
 
 
 class Task:
-    def __init__(self, period, wcet, deadline):
+    def __init__(self, index, period, wcet, deadline):
+        self.index = index
         self.period = period
         self.wcet = wcet
         self.relative_deadline = deadline
-        self.absolute_deadline = deadline  # 1st absolute deadline
+
+
+class TasksetAnalyzer:
+    """
+    Initialize the taskset analyzer
+    """
+
+    def __init__(self, task_set, scheduling_algorithm, is_constrained_deadline):
+
+        # sort the task based on the scheduling algorithm (no need to sort for EDF)
+        if scheduling_algorithm == "RM":
+            self.task_set = sorted(task_set, key=lambda task: (task.period, task.index))
+        elif scheduling_algorithm == "DM":
+            self.task_set = sorted(
+                task_set, key=lambda task: (task.relative_deadline, task.index)
+            )
+        else:
+            self.task_set = task_set
+
+        self.scheduling_algorithm = scheduling_algorithm
+        self.is_constrained_deadline = is_constrained_deadline
+
+    """
+    Utilization bound analysis (only for EDF scheduling algorithm)
+    """
+
+    def utilization_bound_analysis(self):
+
+        # calculate the sum of the utilization of all tasks
+        sum_of_utilizations = sum(task.wcet / task.period for task in self.task_set)
+
+        return "P" if sum_of_utilizations <= 1 else "F"
+
+    """
+    Response time analysis (for RM or DM scheduling algorithms)
+    """
+
+    def response_time_analysis(self):
+
+        for i, task in enumerate(self.task_set):
+
+            # initialize the response time to the task's WCET (R_i^0 = C_i)
+            R_previous = task.wcet
+
+            while True:
+
+                # Calculate interference from higher priority tasks
+                interference = sum(
+                    math.ceil(R_previous / HP_task.period) * HP_task.wcet
+                    for HP_task in self.task_set[:i]
+                )
+
+                # calculate the current response time
+                R_current = task.wcet + interference
+
+                # check the convergence and condition that R <= D (can be early stopped before converge)
+                if R_current > task.relative_deadline:
+                    return "F"
+                elif R_current == R_previous:
+                    break
+
+                # update R_i^k to R_i^(k+1) for next while iteration
+                R_previous = R_current
+
+        return "P"
+
+    """
+    Processor Demand Criterion (only for EDF scheduling algorithm)
+    """
+
+    def processor_demand_criterion(self):
+
+        # Find the hyperperiod of the task set (upperbound of the interval L)
+        hyperperiod = math.lcm(*[task.period for task in self.task_set])
+
+        # All possible interval candidates for interval L for efficiency
+        interval_candidates = sorted(
+            {
+                task.relative_deadline + k * task.period
+                for task in self.task_set
+                for k in range(hyperperiod // task.period + 1)
+                if task.relative_deadline + k * task.period <= hyperperiod
+            }
+        )
+
+        # Iterate over the pre-calculated interval candidates
+        for interval in interval_candidates:
+            # Calculate the total demand g(0, interval) for this interval
+            total_demand = sum(
+                math.floor(
+                    (interval - task.relative_deadline + task.period) / task.period
+                )
+                * task.wcet
+                for task in self.task_set
+            )
+
+            # Check if the demand exceeds the available processing time
+            if total_demand > interval:
+                return "F"  # Task set is not schedulable
+
+        return "P"  # Task set is schedulable
 
 
 """
@@ -79,8 +181,8 @@ def load_tasks(input_file):
 
             # create a task set from the data
             task_set = [
-                Task(data[j * 3], data[j * 3 + 1], data[j * 3 + 2])
-                for j in range(num_tasks)
+                Task(index, data[index * 3], data[index * 3 + 1], data[index * 3 + 2])
+                for index in range(num_tasks)
             ]
 
             # append the task set to the tasks list
