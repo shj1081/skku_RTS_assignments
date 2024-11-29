@@ -2,7 +2,7 @@ import os
 import sys
 import math
 from multiprocessing import Pool
-from functools import partial
+from functools import partial, reduce
 from dataclasses import dataclass
 
 
@@ -120,7 +120,10 @@ class TasksetAnalyzer:
 
         # Find the hyperperiod of the task set (upperbound of the interval L)
         # TODO: What if the hyperperiod is too large? (> 100000)
-        hyperperiod = math.lcm(*[task.period for task in self.task_set])
+        hyperperiod = reduce(
+            lambda x, y: x * y // math.gcd(x, y),
+            [task.period for task in self.task_set],
+        )
 
         # All possible interval candidates for interval L for efficiency
         interval_candidates = sorted(
