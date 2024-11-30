@@ -16,6 +16,7 @@ class Task:
         period (int): Task's Period
         wcet (int): Task's Worst-Case Execution Time
         relative_deadline (int): Task's Relative Deadline
+        utilization (float): Task's Utilization
     """
 
     index: int
@@ -25,7 +26,6 @@ class Task:
 
     @property
     def utilization(self):
-        """Calculate task utilization (WCET/Period)."""
         return self.wcet / self.period
 
 
@@ -181,7 +181,6 @@ def get_user_input():
         SystemExit: If validation fails
     """
 
-    # initialize error messages list to store any validation errors
     error_msgs = []
 
     # check if the user provided exactly 3 parameters
@@ -191,7 +190,6 @@ def get_user_input():
         )
         sys.exit(1)
 
-    # get the arguments
     input_file = sys.argv[1]
     scheduling_algorithm = sys.argv[2]
     analysis = sys.argv[3]
@@ -207,7 +205,6 @@ def get_user_input():
             "Error: Invalid [scheduling_algorithm analysis] pair. Choose from [RM R|DM R|EDF U|EDF D]."
         )
 
-    # print all error messages and exit if any errors exist
     if error_msgs:
         for message in error_msgs:
             print(message)
@@ -246,7 +243,6 @@ def load_tasks(input_file):
             # read task set from the subsequent lines
             data = list(map(int, line.split()[3:]))
 
-            # create a task set from the data
             task_set = [
                 Task(
                     index,  # index
@@ -257,7 +253,6 @@ def load_tasks(input_file):
                 for index in range(num_tasks)
             ]
 
-            # append the task set to the tasks list
             task_sets.append(task_set)
 
     return task_sets, is_constrained_deadline
@@ -312,10 +307,8 @@ def main():
     5. Generate output file
     """
 
-    # validate the user input
     input_file, scheduling_algorithm, analysis = get_user_input()
 
-    # load the task sets from the input file
     task_sets, is_constrained_deadline = load_tasks(input_file)
 
     # check if the deadline type is matched with scheduling algorithm, analysis pair
@@ -333,7 +326,6 @@ def main():
 
         result = []
 
-        # Create a pool of worker processes
         with Pool() as pool:
 
             # use partial to fix the unchanged arguments
@@ -346,7 +338,6 @@ def main():
             # Use pool.imap to analyze task sets with multiprocessing
             result = list(pool.imap(analyze_with_args, task_sets))
 
-        # generate the output file with the schedulability analysis results
         generate_output_file(result)
 
     else:
