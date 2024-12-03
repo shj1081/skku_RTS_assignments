@@ -313,8 +313,8 @@ def main():
 
     # check if the deadline type is matched with scheduling algorithm, analysis pair
     deadline_type_mapping = {
-        "EDF U": 1,
-        "EDF D": 0,
+        "EDF U": 0,
+        "EDF D": 1,
         "RM R": 0,
         "DM R": 1,
     }
