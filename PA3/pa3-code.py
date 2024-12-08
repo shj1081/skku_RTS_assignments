@@ -111,27 +111,37 @@ class TasksetAnalyzer:
     def processor_demand_criterion(self):
         """
         Performs Explicit EDF processor demand criterion analysis.
-
-        Checks if total demand function g(0,L) ≤ L for all relevant intervals L > 0.
+        Uses min(hyperperiod, L*) as the upper bound for interval L.
 
         Returns:
             str: 'P' if schedulable, 'F' otherwise
         """
-
-        # Find the hyperperiod of the task set (upperbound of the interval L)
-        # TODO: What if the hyperperiod is too large? (> 100000)
+        # Calculate hyperperiod
         hyperperiod = reduce(
             lambda x, y: x * y // math.gcd(x, y),
             [task.period for task in self.task_set],
         )
 
-        # All possible interval candidates for interval L for efficiency
+        # Calculate L* = (sum((Ti - Di)Ui))/(1-U)
+        total_utilization = sum(task.utilization for task in self.task_set)
+        if total_utilization > 1:
+            return "F"
+
+        l_star = sum(
+            (task.period - task.relative_deadline) * task.utilization
+            for task in self.task_set
+        ) / (1 - total_utilization)
+
+        # Use the minimum of hyperperiod and L* as the upper bound
+        upper_bound = min(hyperperiod, math.ceil(l_star))
+
+        # All possible interval candidates up to the upper bound
         interval_candidates = sorted(
             {
                 task.relative_deadline + k * task.period
                 for task in self.task_set
-                for k in range(hyperperiod // task.period + 1)
-                if task.relative_deadline + k * task.period <= hyperperiod
+                for k in range(upper_bound // task.period + 1)
+                if task.relative_deadline + k * task.period <= upper_bound
             }
         )
 
