@@ -127,13 +127,18 @@ class TasksetAnalyzer:
         if total_utilization > 1:
             return "F"
 
-        l_star = sum(
-            (task.period - task.relative_deadline) * task.utilization
-            for task in self.task_set
-        ) / (1 - total_utilization)
+        # cannot calculate L* if the total utilization is 1 (infinite L*)
+        if total_utilization != 1:
+            l_star = sum(
+                (task.period - task.relative_deadline) * task.utilization
+                for task in self.task_set
+            ) / (1 - total_utilization)
 
-        # Use the minimum of hyperperiod and L* as the upper bound
-        upper_bound = min(hyperperiod, math.ceil(l_star))
+            # Use the minimum of hyperperiod and L* as the upper bound
+            upper_bound = min(hyperperiod, math.ceil(l_star))
+
+        else:
+            upper_bound = hyperperiod
 
         # All possible interval candidates up to the upper bound
         interval_candidates = sorted(
